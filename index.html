@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>薪資計算本</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: 薪資單式。左欄為本月輸入(收入項目、扣除項目),右欄為固定的實領摘要;年度頁為逐月表格加長條。 */
+:root{
+  --bg:#f3f5f6; --surface:#ffffff; --fg:#17262b; --muted:#5d7077; --line:#dbe3e6;
+  --accent:#0f6f73; --accent-fg:#ffffff; --accent-soft:#dff0f0;
+  --minus:#b4402f; --minus-soft:#f8e4e0; --warn:#9a6a00;
+  --font-ui:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --font-num:"Space Grotesk","Noto Sans TC",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e1719; --surface:#152225; --fg:#e4eef0; --muted:#8fa4aa; --line:#27383c;
+  --accent:#4fc3c4; --accent-fg:#06282a; --accent-soft:#17383a;
+  --minus:#f08a78; --minus-soft:#3a201c; --warn:#e2b04a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1719; --surface:#152225; --fg:#e4eef0; --muted:#8fa4aa; --line:#27383c;
+  --accent:#4fc3c4; --accent-fg:#06282a; --accent-soft:#17383a;
+  --minus:#f08a78; --minus-soft:#3a201c; --warn:#e2b04a; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--font-ui);
+  padding-block:20px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1040px;margin:0 auto}
+header{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between;margin-bottom:20px}
+h1{font-size:22px;margin:0;letter-spacing:.02em}
+nav{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:3px}
+nav button{border:0;background:none;color:var(--muted);font:inherit;padding:6px 18px;border-radius:8px;cursor:pointer}
+nav button[aria-selected="true"]{background:var(--accent);color:var(--accent-fg);font-weight:700}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.banner{background:var(--accent-soft);border-radius:8px;padding:10px 14px;margin-bottom:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between;font-size:14px}
+
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start}
+@media(max-width:820px){.grid{grid-template-columns:minmax(0,1fr)}.summary{position:static!important}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
+.panel+.panel{margin-top:16px}
+h2{font-size:13px;letter-spacing:.08em;color:var(--muted);margin:0 0 10px;font-weight:500;text-transform:uppercase}
+
+.monthbar{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.monthbar input[type=month]{font-size:18px;font-weight:700;padding:6px 10px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 12px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-weight:700}
+.btn.danger{color:var(--minus)}
+input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:6px 9px;min-width:0}
+input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}
+
+.row{display:grid;grid-template-columns:minmax(0,1fr) 96px 92px 104px;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.row .nm{min-width:0}
+.row .nm small{display:block;color:var(--muted);font-size:12px}
+.row input{width:100%;text-align:right}
+.row .amt{text-align:right;font-weight:500}
+.row .amt.neg,.minus{color:var(--minus)}
+.colhead{display:grid;grid-template-columns:minmax(0,1fr) 96px 92px 104px;gap:8px;font-size:12px;color:var(--muted);padding-bottom:4px}
+.colhead span:not(:first-child){text-align:right}
+.row.simple,.colhead.simple{grid-template-columns:minmax(0,1fr) 150px 104px}
+.bad{border-color:var(--minus)!important;background:var(--minus-soft)}
+@media(max-width:520px){
+  .row,.colhead{grid-template-columns:minmax(0,1fr) 78px 70px 84px;gap:6px;font-size:14px}
+  .row.simple,.colhead.simple{grid-template-columns:minmax(0,1fr) 110px 84px}
+}
+
+.summary{position:sticky;top:16px}
+.net{font-family:var(--font-num);font-size:40px;font-weight:700;line-height:1.1;color:var(--accent)}
+.sumrow{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid var(--line)}
+.sumrow:first-of-type{border-top:0}
+.avg{background:var(--accent-soft);border-radius:10px;padding:12px 14px;margin-top:12px}
+.avg b{font-family:var(--font-num);font-size:24px}
+.meta{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.meta label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.meta input,.meta textarea{width:100%;color:var(--fg)}
+textarea{resize:vertical}
+
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:560px}
+th,td{padding:9px 10px;text-align:right;border-top:1px solid var(--line);white-space:nowrap}
+th{font-size:12px;color:var(--muted);font-weight:500;border-top:0}
+th:first-child,td:first-child{text-align:left}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--accent-soft)}
+tfoot td{font-weight:700;border-top:2px solid var(--fg)}
+.barcell{width:30%;min-width:120px}
+.bar{height:10px;border-radius:3px;background:var(--accent);min-width:2px}
+.yearbar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.card b{display:block;font-family:var(--font-num);font-size:22px;margin-top:2px}
+
+.setrow{display:grid;grid-template-columns:minmax(0,1.2fr) 110px 90px 56px minmax(0,1fr) 40px;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.setrow input,.setrow select{width:100%}
+.setrow.ded{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) 40px}
+.sethead{display:grid;gap:8px;font-size:12px;color:var(--muted);grid-template-columns:minmax(0,1.2fr) 110px 90px 56px minmax(0,1fr) 40px}
+.sethead.ded{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) 40px}
+@media(max-width:700px){
+  .sethead{display:none}
+  .setrow{grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:8px}
+  .setrow.ded{grid-template-columns:1fr 1fr 40px}
+}
+.hint{font-size:13px;color:var(--muted);margin:8px 0 0}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.dow{font-size:12px;text-align:center;color:var(--muted);padding-bottom:2px}
+.dow.we{color:var(--minus)}
+.day{min-height:54px;border:1px solid var(--line);border-radius:8px;background:var(--bg);padding:4px 6px;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;text-align:left;min-width:0}
+.day.we>span:first-child{color:var(--minus)}
+.day.has{background:var(--accent-soft);border-color:var(--accent)}
+.day[aria-pressed="true"]{outline:2px solid var(--accent);outline-offset:1px;font-weight:700}
+.day .h{font-size:12px;color:var(--accent);font-weight:700;align-self:flex-end}
+.day .hn{font-size:10px;line-height:1.2;color:var(--minus);word-break:break-all;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:100%}
+.day .hn.mkn{color:var(--accent)}
+.day.mk{border-style:dashed;border-color:var(--accent)}
+.day.hol{background:var(--minus-soft);border-color:transparent}
+.day.hol>span:first-child{color:var(--minus)}
+.day.hol.has{border-color:var(--accent)}
+.holtag{display:inline-block;font-size:12px;color:var(--minus);background:var(--minus-soft);border-radius:6px;padding:1px 8px;margin-left:6px;vertical-align:middle;font-weight:500}
+.calsum{font-size:13px;color:var(--muted);margin:8px 0 0}
+.dayed{margin-top:14px;padding-top:12px;border-top:2px solid var(--line)}
+.dayhead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
+.dayhead b{font-size:17px}
+.daybtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.row input:disabled{background:var(--accent-soft);border-color:transparent;color:var(--fg);opacity:1}
+@media(max-width:520px){.day{min-height:50px;padding:3px 3px}.day .h{font-size:11px}}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:14px}
+</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>薪資計算本</h1>
+    <nav role="tablist" aria-label="頁面">
+      <button role="tab" id="tab-month" aria-selected="true" data-view="month">本月</button>
+      <button role="tab" id="tab-year" aria-selected="false" data-view="year">年度</button>
+      <button role="tab" id="tab-set" aria-selected="false" data-view="set">設定</button>
+    </nav>
+  </header>
+  <div id="banner"></div>
+  <main id="main"></main>
+  <p class="hint" id="lineinfo" style="text-align:center;margin-top:24px"></p>
+</div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+(function(){
+const KEY='salary-app-v1';
+const $=(s,r=document)=>r.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let uid=()=>Math.random().toString(36).slice(2,8);
+
+/* ---------- 預設資料(依範例檔 2026 年的算法) ---------- */
+// 舊版預設值;沒被使用者改過的會在載入時移除,改由日曆推算
+const OLD_WD={2023:248,2024:251,2025:249,2026:245,2027:244};
+function defaults(){
+  return {
+    seeded:true, workdays:{},
+    items:[
+      {id:'base',name:'基本薪資',mode:'rate',rate:400,hours:true,def:''},
+      {id:'lic',name:'掛照費',mode:'amount',rate:0,hours:false,def:''},
+      {id:'school',name:'學校系統',mode:'rate',rate:1100,hours:true,def:''},
+      {id:'care',name:'居家長照',mode:'rate',rate:1050,hours:true,def:''},
+      {id:'inst',name:'機構',mode:'rate',rate:500,hours:true,def:''},
+      {id:'manual',name:'徒手人數',mode:'rate',rate:0,hours:true,def:''},
+      {id:'self',name:'自費',mode:'amount',rate:0,hours:false,def:''},
+      {id:'extra',name:'加給',mode:'amount',rate:0,hours:false,def:''},
+      {id:'adj',name:'其他加減',mode:'amount',rate:0,hours:false,def:''}
+    ],
+    deds:[
+      {id:'ins',name:'勞健保',def:'3175'},
+      {id:'pen',name:'勞退自提6%',def:'0'}
+    ],
+    months:{}
+  };
+}
+function load(){
+  try{const t=localStorage.getItem(KEY);if(t){const s=JSON.parse(t);if(s&&s.items){s.workdays=s.workdays||{};for(const[y,v]of Object.entries(OLD_WD))if(s.workdays[y]===v)delete s.workdays[y];delete s.target;for(const m of Object.values(s.months||{}))m.days=m.days||{};return s}}}catch(e){}
+  return defaults();
+}
+// 公開網址版不內含任何薪資資料;歷史紀錄請用「設定 → 備份與還原」貼上匯入
+const XLS_HIST={};
+let S=load();
+function importHist(overwrite){
+  let n=0,skip=0;
+  for(const[ym,h]of Object.entries(XLS_HIST)){
+    const ex=S.months[ym];
+    if(ex&&ex.note!=='範例資料'&&!overwrite){skip++;continue}
+    const cp=a=>a.map(([k,v])=>[k,String(v)]);
+    S.months[ym]={hist:{inc:cp(h.inc),ded:cp(h.ded),hrs:cp(h.hrs)},q:{},r:{},d:{},days:{},
+      leave:h.leave?String(h.leave):'',pto:h.pto?String(h.pto):'',note:'從 Excel 匯入'};
+    n++;
+  }
+  for(const k of Object.keys(S.months))if(S.months[k].note==='範例資料')delete S.months[k];
+  S.seeded=false;S.xlsImported=1;save();
+  return {n,skip};
+}
+if(Object.keys(XLS_HIST).length&&!S.xlsImported){const r=importHist(false);setTimeout(()=>toast(`已匯入 Excel 歷史紀錄 ${r.n} 個月`+(r.skip?`(${r.skip} 個月已有資料,未覆蓋)`:'')),300)}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+
+/* ---------- 計算 ---------- */
+// 欄位可輸入算式,如 500*13+540*1;只允許數字與 + - * / ( )
+function ev(expr){
+  if(expr==null||String(expr).trim()==='')return {v:0,ok:true,empty:true};
+  let t=String(expr).replace(/[＋]/g,'+').replace(/[－−]/g,'-').replace(/[×x]/g,'*').replace(/[÷]/g,'/').replace(/\s+/g,'').replace(/^=/,'');
+  if(!/^[0-9+\-*/().]+$/.test(t))return {v:0,ok:false};
+  try{const v=Function('"use strict";return ('+t+')')();if(typeof v==='number'&&isFinite(v))return {v,ok:true};}catch(e){}
+  return {v:0,ok:false};
+}
+// 班表裡有填這個項目時,本月數量 = 每天加總;否則用本月輸入
+function daySum(m,id){
+  let sum=0,found=false;
+  for(const d of Object.values(m.days||{})){const x=d[id];if(x!==undefined&&String(x).trim()!==''){found=true;sum+=ev(x).v}}
+  return found?sum:null;
+}
+function calc(ym){
+  const m=S.months[ym]||{q:{},r:{},d:{}};
+  if(m.hist){
+    const sum=a=>a.reduce((t,[,v])=>t+ev(v).v,0);
+    const gross=sum(m.hist.inc),ded=sum(m.hist.ded),hours=sum(m.hist.hrs),net=gross-ded;
+    return {gross,ded,net,hours,avg:hours>0?net/hours:null,lines:[],dl:[],hist:true};
+  }
+  let gross=0,hours=0;const lines=[];
+  for(const it of S.items){
+    const raw=m.q?.[it.id];
+    const ds=it.mode==='rate'?daySum(m,it.id):null;
+    const e=ds!=null?{v:ds,ok:true}:ev(raw!==undefined&&raw!==''?raw:it.def);
+    const rate=m.r?.[it.id]!==undefined&&m.r[it.id]!==''?Number(m.r[it.id]):it.rate;
+    const amt=it.mode==='rate'?e.v*(rate||0):e.v;
+    gross+=amt; if(it.hours&&it.mode==='rate')hours+=e.v;
+    lines.push({id:it.id,amt,ok:e.ok,rate,qty:e.v,fromDays:ds!=null});
+  }
+  let ded=0;const dl=[];
+  for(const d of S.deds){
+    const raw=m.d?.[d.id];
+    const e=ev(raw!==undefined&&raw!==''?raw:d.def);
+    ded+=e.v;dl.push({id:d.id,amt:e.v,ok:e.ok});
+  }
+  const net=gross-ded;
+  return {gross,ded,net,hours,avg:hours>0?net/hours:null,lines,dl};
+}
+const money=n=>Math.round(n).toLocaleString('zh-TW');
+const fmtH=n=>(Math.round(n*100)/100).toLocaleString('zh-TW');
+const fmtAvg=n=>n==null?'—':n.toLocaleString('zh-TW',{minimumFractionDigits:1,maximumFractionDigits:1});
+
+/* ---------- 狀態 ---------- */
+const now=new Date();
+let cur=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+let year=now.getFullYear();
+let view='month';
+let selDay=null,selFor=null;
+const todayYm=cur;
+function ensure(ym){const m=S.months[ym]||(S.months[ym]={q:{},r:{},d:{},days:{},leave:'',pto:'',note:''});m.days=m.days||{};return m}
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,1800)}
+function shift(ym,d){let[y,m]=ym.split('-').map(Number);m+=d;while(m>12){m-=12;y++}while(m<1){m+=12;y--}return y+'-'+String(m).padStart(2,'0')}
+
+/* ---------- 本月 ---------- */
+function monthBar(){return `<div class="monthbar">
+    <button class="btn" id="prev" aria-label="上個月">‹</button>
+    <input type="month" id="ym" value="${cur}" aria-label="月份">
+    <button class="btn" id="next" aria-label="下個月">›</button>`}
+function summaryHTML(){return `<aside class="summary panel" aria-live="polite">
+      <h2>本月實領</h2>
+      <div class="net" id="s-net"></div>
+      <div style="margin-top:12px">
+        <div class="sumrow"><span>應領合計</span><b class="num" id="s-gross"></b></div>
+        <div class="sumrow"><span>扣除合計</span><b class="num minus" id="s-ded"></b></div>
+        <div class="sumrow"><span>總時數</span><b class="num" id="s-hours"></b></div>
+      </div>
+      <div class="avg"><div class="muted" style="font-size:13px">平均時薪(實領 ÷ 總時數)</div><b id="s-avg"></b> 元/時</div>
+    </aside>`}
+function renderHist(m){
+  const sec=(key,title,unit,cls)=>`<div class="panel"><h2>${title}</h2>
+    ${m.hist[key].map(([nm,v],i)=>`<div class="row simple" data-h="${key}:${i}">
+      <div class="nm">${esc(nm)}</div>
+      <input class="num q" id="h-${key}-${i}" inputmode="decimal" aria-label="${esc(nm)}" value="${esc(v)}">
+      <div class="amt num ${cls}">${unit}</div></div>`).join('')||'<p class="hint" style="margin:0">無</p>'}</div>`;
+  $('#main').innerHTML=`${monthBar()}</div>
+  <div class="banner" style="background:var(--surface);border:1px solid var(--line)"><span>這個月是從 Excel 匯入的紀錄,保留當時的項目名稱;數字可以直接修改。</span>
+    <button class="btn" id="toitems">改用目前的項目重新填寫</button></div>
+  <div class="grid"><div>
+    ${sec('inc','收入','元','')}
+    ${sec('hrs','計入總時數的工時','小時','')}
+    ${sec('ded','扣除','元','minus')}
+    <div class="panel"><h2>出勤紀錄(僅記錄,不影響薪資)</h2><div class="meta">
+      <label>請假時數<input class="num" id="leave" inputmode="decimal" value="${esc(m.leave??'')}"></label>
+      <label>特休時數<input class="num" id="pto" inputmode="decimal" value="${esc(m.pto??'')}"></label>
+      <label style="grid-column:1/-1">備註<textarea id="note" rows="2">${esc(m.note??'')}</textarea></label>
+    </div></div>
+  </div>${summaryHTML()}</div>`;
+  refreshMonth();
+  $('#ym').onchange=e=>{if(e.target.value){cur=e.target.value;renderMonth()}};
+  $('#prev').onclick=()=>{cur=shift(cur,-1);renderMonth()};
+  $('#next').onclick=()=>{cur=shift(cur,1);renderMonth()};
+  $('#toitems').onclick=e=>{const b=e.currentTarget;
+    if(!b.dataset.sure){b.dataset.sure=1;b.textContent='再按一次確認(這個月的匯入數字會清掉)';setTimeout(()=>{b.dataset.sure='';b.textContent='改用目前的項目重新填寫'},3000);return}
+    delete m.hist;save();renderMonth();toast('已改用目前的項目')};
+  $('#main').oninput=e=>{
+    const t=e.target,row=t.closest('[data-h]');
+    if(row){const[k,i]=row.dataset.h.split(':');m.hist[k][+i][1]=t.value}
+    else if(t.id==='leave')m.leave=t.value;else if(t.id==='pto')m.pto=t.value;else if(t.id==='note')m.note=t.value;
+    save();refreshMonth();
+  };
+}
+function renderMonth(){
+  const m=S.months[cur]||{q:{},r:{},d:{}};
+  if(m.hist){renderHist(m);return}
+  const itemRows=S.items.map(it=>{
+    const raw=m.q?.[it.id]??'';
+    const rate=m.r?.[it.id]??'';
+    if(it.mode==='rate'){
+      return `<div class="row" data-item="${it.id}">
+        <div class="nm">${esc(it.name)}<small data-orig="時數 × 時薪${it.hours?'・計入總時數':''}">時數 × 時薪${it.hours?'・計入總時數':''}</small></div>
+        <input class="num q" inputmode="decimal" aria-label="${esc(it.name)}時數" placeholder="${esc(it.def||'時數')}" value="${esc(raw)}">
+        <input class="num r" inputmode="decimal" aria-label="${esc(it.name)}時薪" placeholder="${it.rate}" value="${esc(rate)}">
+        <div class="amt num"></div></div>`;
+    }
+    return `<div class="row" data-item="${it.id}">
+      <div class="nm">${esc(it.name)}<small>金額,可輸入算式</small></div>
+      <input class="num q" style="grid-column:span 2" inputmode="decimal" aria-label="${esc(it.name)}金額" placeholder="${esc(it.def||'0')}" value="${esc(raw)}">
+      <div class="amt num"></div></div>`;
+  }).join('');
+  const dedRows=S.deds.map(d=>`<div class="row simple" data-ded="${d.id}">
+      <div class="nm">${esc(d.name)}</div>
+      <input class="num q" inputmode="decimal" aria-label="${esc(d.name)}" placeholder="${esc(d.def||'0')}" value="${esc(m.d?.[d.id]??'')}">
+      <div class="amt num minus"></div></div>`).join('');
+  $('#main').innerHTML=`
+  <div class="monthbar">
+    <button class="btn" id="prev" aria-label="上個月">‹</button>
+    <input type="month" id="ym" value="${cur}" aria-label="月份">
+    <button class="btn" id="next" aria-label="下個月">›</button>
+    <button class="btn" id="copyprev" title="沿用上個月的時薪與輸入">複製上月內容</button>
+  </div>
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>每日班表</h2>
+        <div class="cal" id="cal"></div>
+        <p class="calsum" id="calsum"></p>
+        <div class="dayed" id="dayed"></div>
+      </div>
+      <div class="panel">
+        <h2>收入項目</h2>
+        <div class="colhead"><span>項目</span><span>時數/金額</span><span>時薪</span><span>小計</span></div>
+        ${itemRows}
+        <p class="hint">金額欄可直接輸入算式,例如 <span class="num">500*13+540*1</span>。時薪欄留白就用設定頁的預設時薪。班表有填的項目會自動加總,不用在這裡輸入。</p>
+      </div>
+      <div class="panel">
+        <h2>扣除項目</h2>
+        ${dedRows}
+      </div>
+      <div class="panel">
+        <h2>出勤紀錄(僅記錄,不影響薪資)</h2>
+        <div class="meta">
+          <label>請假時數<input class="num" id="leave" inputmode="decimal" value="${esc(m.leave??'')}"></label>
+          <label>特休時數<input class="num" id="pto" inputmode="decimal" value="${esc(m.pto??'')}"></label>
+          <label style="grid-column:1/-1">備註<textarea id="note" rows="2">${esc(m.note??'')}</textarea></label>
+        </div>
+      </div>
+    </div>
+    <aside class="summary panel" aria-live="polite">
+      <h2>本月實領</h2>
+      <div class="net" id="s-net"></div>
+      <div style="margin-top:12px">
+        <div class="sumrow"><span>應領合計</span><b class="num" id="s-gross"></b></div>
+        <div class="sumrow"><span>扣除合計</span><b class="num minus" id="s-ded"></b></div>
+        <div class="sumrow"><span>總時數</span><b class="num" id="s-hours"></b></div>
+      </div>
+      <div class="avg"><div class="muted" style="font-size:13px">平均時薪(實領 ÷ 總時數)</div><b id="s-avg"></b> 元/時</div>
+    </aside>
+  </div>`;
+  if(selFor!==cur||!selDay||selDay>dim(cur)){selDay=cur===todayYm?now.getDate():1;selFor=cur}
+  renderCal();renderDay();refreshMonth();
+  $('#ym').onchange=e=>{if(e.target.value){cur=e.target.value;renderMonth()}};
+  $('#prev').onclick=()=>{cur=shift(cur,-1);renderMonth()};
+  $('#next').onclick=()=>{cur=shift(cur,1);renderMonth()};
+  $('#copyprev').onclick=()=>{
+    const p=S.months[shift(cur,-1)];
+    if(!p){toast('上個月沒有資料');return}
+    const c=JSON.parse(JSON.stringify(p));c.note='';c.leave='';c.pto='';c.days={};
+    S.months[cur]=c;save();renderMonth();toast('已複製上個月內容');
+  };
+  const mm=$('#main');
+  mm.onclick=e=>{
+    const b=e.target.closest('button');if(!b)return;
+    const mo=()=>ensure(cur);
+    if(b.dataset.day){selDay=Number(b.dataset.day);renderCal();renderDay();return}
+    if(b.id==='d-prev'||b.id==='d-next'){const n=selDay+(b.id==='d-next'?1:-1);if(n>=1&&n<=dim(cur)){selDay=n;renderCal();renderDay()}return}
+    if(b.id==='d-same'){
+      const m=mo();let src=null;for(let d=selDay-1;d>=1;d--){if(m.days[d]){src=m.days[d];break}}
+      if(!src){toast('前面沒有排班的日子');return}
+      m.days[selDay]={...src};
+    }else if(b.id==='d-fill'){
+      const m=mo();const src=m.days[selDay];if(!src){toast('這天還沒填,先填好再套用');return}
+      let n=0;for(let d=1;d<=dim(cur);d++){if(!isOff(cur,d)&&!m.days[d]){m.days[d]={...src};n++}}
+      toast(n?`已套用到 ${n} 個上班日(已跳過國定假日)`:'沒有空白的上班日');
+    }else if(b.id==='d-hol'||b.id==='d-unhol'){
+      S.hol=S.hol||{};const k=dkey(cur,selDay);
+      if(b.id==='d-hol'){const nm=($('#holname').value||'').trim()||'假日';if(HOL[k]===nm)delete S.hol[k];else S.hol[k]=nm}
+      else{if(HOL[k])S.hol[k]='';else delete S.hol[k]}
+    }else if(b.id==='d-clear'){
+      const m=mo();delete m.days[selDay];
+    }else return;
+    save();renderCal();renderDay();refreshMonth();
+  };
+  mm.oninput=e=>{
+    const t=e.target;if(!(t instanceof HTMLInputElement||t instanceof HTMLTextAreaElement))return;
+    const dr=t.closest('[data-dayitem]');
+    if(dr){
+      const mo=ensure(cur);const o=mo.days[selDay]||(mo.days[selDay]={});
+      o[dr.dataset.dayitem]=t.value;
+      if(Object.values(o).every(v=>String(v).trim()===''))delete mo.days[selDay];
+      save();renderCal();refreshDay();refreshMonth();return;
+    }
+    const row=t.closest('[data-item],[data-ded]');const mo=ensure(cur);
+    if(row&&row.dataset.item){(t.classList.contains('r')?mo.r:mo.q)[row.dataset.item]=t.value}
+    else if(row&&row.dataset.ded){mo.d[row.dataset.ded]=t.value}
+    else if(t.id==='leave')mo.leave=t.value;
+    else if(t.id==='pto')mo.pto=t.value;
+    else if(t.id==='note')mo.note=t.value;
+    save();refreshMonth();refreshDay();
+  };
+}
+const DOW='日一二三四五六';
+// 行政院人事行政總處「政府行政機關辦公日曆表」112–116 年(114 年為修正版)
+const HOL={
+ '2023-01-01':'開國紀念日','2023-01-02':'元旦補假','2023-01-20':'調整放假','2023-01-21':'除夕','2023-01-22':'春節','2023-01-23':'春節','2023-01-24':'春節',
+ '2023-01-25':'除夕補假','2023-01-26':'春節補假','2023-01-27':'調整放假','2023-02-27':'調整放假','2023-02-28':'和平紀念日',
+ '2023-04-03':'調整放假','2023-04-04':'兒童節','2023-04-05':'清明節','2023-06-22':'端午節','2023-06-23':'調整放假','2023-09-29':'中秋節',
+ '2023-10-09':'調整放假','2023-10-10':'國慶日',
+ '2024-01-01':'元旦','2024-02-08':'調整放假','2024-02-09':'除夕','2024-02-10':'春節','2024-02-11':'春節','2024-02-12':'春節','2024-02-13':'春節補假','2024-02-14':'春節補假',
+ '2024-02-28':'和平紀念日','2024-04-04':'兒童節及清明節','2024-04-05':'兒童節補假','2024-06-10':'端午節','2024-09-17':'中秋節','2024-10-10':'國慶日',
+ '2025-01-01':'元旦','2025-01-27':'調整放假','2025-01-28':'除夕','2025-01-29':'春節','2025-01-30':'春節','2025-01-31':'春節','2025-02-28':'和平紀念日',
+ '2025-04-03':'兒童節','2025-04-04':'清明節','2025-05-30':'端午節補假','2025-05-31':'端午節','2025-09-28':'教師節','2025-09-29':'教師節補假',
+ '2025-10-06':'中秋節','2025-10-10':'國慶日','2025-10-24':'光復節補假','2025-10-25':'光復節','2025-12-25':'行憲紀念日',
+ '2026-01-01':'元旦','2026-02-15':'小年夜','2026-02-16':'除夕','2026-02-17':'春節','2026-02-18':'春節','2026-02-19':'春節','2026-02-20':'小年夜補假',
+ '2026-02-27':'和平紀念日補假','2026-02-28':'和平紀念日','2026-04-03':'兒童節補假','2026-04-04':'兒童節','2026-04-05':'清明節','2026-04-06':'清明節補假',
+ '2026-05-01':'勞動節','2026-06-19':'端午節','2026-09-25':'中秋節','2026-09-28':'教師節','2026-10-09':'國慶日補假','2026-10-10':'國慶日',
+ '2026-10-25':'光復節','2026-10-26':'光復節補假','2026-12-25':'行憲紀念日',
+ '2027-01-01':'元旦','2027-02-04':'小年夜','2027-02-05':'除夕','2027-02-06':'春節','2027-02-07':'春節','2027-02-08':'春節','2027-02-09':'春節補假','2027-02-10':'春節補假',
+ '2027-02-28':'和平紀念日','2027-03-01':'和平紀念日補假','2027-04-04':'兒童節','2027-04-05':'清明節','2027-04-06':'兒童節補假',
+ '2027-04-30':'勞動節補假','2027-05-01':'勞動節','2027-06-09':'端午節','2027-09-15':'中秋節','2027-09-28':'教師節',
+ '2027-10-10':'國慶日','2027-10-11':'國慶日補假','2027-10-25':'光復節','2027-12-24':'行憲紀念日補假','2027-12-25':'行憲紀念日','2027-12-31':'元旦補假'
+};
+// 補行上班日(週末上班)
+const WORK=new Set(['2023-01-07','2023-02-04','2023-02-18','2023-03-25','2023-06-17','2023-09-23','2024-02-17','2025-02-08']);
+const CAL_YEARS=new Set(Object.keys(HOL).map(k=>k.slice(0,4)));
+const dkey=(ym,d)=>ym+'-'+String(d).padStart(2,'0');
+// 使用者可自行標記或取消假日:S.hol[日期] = 名稱;空字串代表取消內建假日
+function holName(ym,d){const k=dkey(ym,d);if(S.hol&&k in S.hol)return S.hol[k]||null;return HOL[k]||null}
+function isMakeup(ym,d){const k=dkey(ym,d);return WORK.has(k)&&!holName(ym,d)}
+function isOff(ym,d){if(holName(ym,d))return true;if(isMakeup(ym,d))return false;const w=dow(ym,d);return w===0||w===6}
+// 依日曆推算全年上班天數(只限有官方日曆資料的年份)
+function calWorkdays(y){
+  if(!CAL_YEARS.has(String(y)))return null;let n=0;
+  for(let m=1;m<=12;m++){const ym=y+'-'+String(m).padStart(2,'0');for(let d=1;d<=dim(ym);d++)if(!isOff(ym,d))n++}
+  return n;
+}
+function workdaysFor(y){const v=Number(S.workdays?.[y]);return v>0?v:calWorkdays(y)}
+function dim(ym){const[y,m]=ym.split('-').map(Number);return new Date(y,m,0).getDate()}
+function dow(ym,d){const[y,m]=ym.split('-').map(Number);return new Date(y,m-1,d).getDay()}
+function rateOf(m,it){const r=m.r?.[it.id];return r!==undefined&&r!==''?Number(r):it.rate}
+function dayHours(m,d){
+  const o=m.days?.[d];if(!o)return null;let h=0,any=false;
+  for(const it of S.items){if(it.mode!=='rate')continue;const x=o[it.id];
+    if(x!==undefined&&String(x).trim()!==''){any=true;if(it.hours)h+=ev(x).v}}
+  return any?h:null;
+}
+function renderCal(){
+  const m=S.months[cur]||{};const n=dim(cur);
+  let h=[...DOW].map((c,i)=>`<div class="dow${i===0||i===6?' we':''}">${c}</div>`).join('');
+  for(let i=0;i<dow(cur,1);i++)h+='<div></div>';
+  let days=0,tot=0,work=0;
+  for(let d=1;d<=n;d++){
+    const w=dow(cur,d),hh=dayHours(m,d),hn=holName(cur,d);
+    if(hh!=null){days++;tot+=hh}
+    if(!isOff(cur,d))work++;
+    const mk=isMakeup(cur,d);
+    h+=`<button class="day${(w===0||w===6)&&!mk?' we':''}${mk?' mk':''}${hn&&w>0&&w<6?' hol':''}${hh!=null?' has':''}" data-day="${d}" aria-pressed="${d===selDay}" aria-label="${d}日${hn?','+esc(hn):''}${hh!=null?','+fmtH(hh)+'小時':''}"${hn?` title="${esc(hn)}"`:''}><span class="num">${d}</span>${hn?`<span class="hn">${esc(hn)}</span>`:mk?`<span class="hn mkn">補行上班</span>`:''}<span class="h num">${hh!=null?fmtH(hh)+'h':''}</span></button>`;
+  }
+  $('#cal').innerHTML=h;
+  $('#calsum').textContent=`本月上班日 ${work} 天(${work*8} 小時)。`+(days?`已排 ${days} 天,共 ${fmtH(tot)} 小時(計入總時數的項目)。`:'點日期填當天各項目的時數,本月數量會自動加總。');
+}
+function renderDay(){
+  const m=S.months[cur]||{};const o=m.days?.[selDay]||{};
+  const mo=Number(cur.slice(5));
+  const hn=holName(cur,selDay);
+  $('#dayed').innerHTML=`<div class="dayhead"><b>${mo} 月 ${selDay} 日(${DOW[dow(cur,selDay)]})${hn?`<span class="holtag">${esc(hn)}</span>`:isMakeup(cur,selDay)?`<span class="holtag" style="color:var(--accent);background:var(--accent-soft)">補行上班</span>`:''}</b>
+    <span style="display:flex;gap:4px"><button class="btn" id="d-prev" aria-label="前一天">‹</button><button class="btn" id="d-next" aria-label="後一天">›</button></span></div>
+    ${S.items.filter(i=>i.mode==='rate').map(it=>`<div class="row simple" data-dayitem="${it.id}">
+      <div class="nm">${esc(it.name)}<small>${it.hours?'時數':'數量(不計時數)'}</small></div>
+      <input class="num dq" id="day-${it.id}" inputmode="decimal" aria-label="${esc(it.name)}當天時數" placeholder="0" value="${esc(o[it.id]??'')}">
+      <div class="amt num"></div></div>`).join('')}
+    <div class="daybtns">
+      <button class="btn" id="d-same">同上一個排班日</button>
+      <button class="btn" id="d-fill">套用到本月空白上班日</button>
+      <button class="btn danger" id="d-clear">清除這天</button>
+      ${hn?`<button class="btn" id="d-unhol">取消假日</button>`:`<span style="display:flex;gap:6px"><input id="holname" placeholder="假日名稱" aria-label="假日名稱" style="width:110px"><button class="btn" id="d-hol">標為假日</button></span>`}
+    </div>`;
+  refreshDay();
+}
+function refreshDay(){
+  const m=S.months[cur]||{};
+  document.querySelectorAll('[data-dayitem]').forEach(row=>{
+    const it=S.items.find(x=>x.id===row.dataset.dayitem);const inp=$('.dq',row);
+    const e=ev(inp.value);inp.classList.toggle('bad',!e.ok);
+    $('.amt',row).textContent=inp.value.trim()?money(e.v*(rateOf(m,it)||0)):'';
+  });
+}
+function refreshMonth(){
+  const c=calc(cur);
+  if(c.hist){document.querySelectorAll('[data-h] .q').forEach(q=>q.classList.toggle('bad',!ev(q.value).ok))}
+  for(const l of c.lines){
+    const row=$(`[data-item="${l.id}"]`);if(!row)continue;
+    const a=$('.amt',row);a.textContent=money(l.amt);a.classList.toggle('neg',l.amt<0);
+    const q=$('.q',row),sm=$('small',row);
+    if(l.fromDays){q.disabled=true;q.value=fmtH(l.qty);if(sm)sm.textContent='由每日班表加總'}
+    else if(q.disabled){q.disabled=false;q.value=(S.months[cur]?.q?.[l.id])??'';if(sm)sm.textContent=sm.dataset.orig}
+    q.classList.toggle('bad',!l.ok);
+  }
+  for(const l of c.dl){
+    const row=$(`[data-ded="${l.id}"]`);if(!row)continue;
+    $('.amt',row).textContent=l.amt?'−'+money(l.amt):'0';
+    $('.q',row).classList.toggle('bad',!l.ok);
+  }
+  $('#s-net').textContent='$'+money(c.net);
+  $('#s-gross').textContent=money(c.gross);
+  $('#s-ded').textContent='−'+money(c.ded);
+  $('#s-hours').textContent=fmtH(c.hours)+' 小時';
+  $('#s-avg').textContent=fmtAvg(c.avg);
+}
+
+/* ---------- 年度 ---------- */
+function renderYear(){
+  const rows=[];let tn=0,th=0,tg=0,td=0,max=0,tl=0,tp=0;
+  for(let i=1;i<=12;i++){
+    const ym=year+'-'+String(i).padStart(2,'0');
+    const has=!!S.months[ym];
+    const c=has?calc(ym):null;
+    if(c){tn+=c.net;th+=c.hours;tg+=c.gross;td+=c.ded;max=Math.max(max,c.net);
+      tl+=Number(ev(S.months[ym].leave).v);tp+=Number(ev(S.months[ym].pto).v)}
+    rows.push({ym,i,c});
+  }
+  const avg=th>0?tn/th:null;
+  const wd=workdaysFor(year)||0;const wdCal=calWorkdays(year);
+  const target=wd*8;
+  const diff=th-target;
+  $('#main').innerHTML=`
+  <div class="yearbar">
+    <button class="btn" id="yp" aria-label="前一年">‹</button>
+    <b class="num" style="font-size:22px">${year} 年</b>
+    <button class="btn" id="yn" aria-label="後一年">›</button>
+  </div>
+  <div class="cards">
+    <div class="card"><span class="muted">全年實領</span><b>$${money(tn)}</b></div>
+    <div class="card"><span class="muted">全年總時數</span><b>${fmtH(th)}</b></div>
+    <div class="card"><span class="muted">全年平均時薪</span><b>${fmtAvg(avg)}</b></div>
+    <div class="card"><span class="muted">年度目標時數</span>
+      <b>${wd?fmtH(target):'—'}</b>
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-top:4px;white-space:nowrap" class="muted">上班
+        <input id="wd" class="num" inputmode="numeric" value="${S.workdays[year]??''}" placeholder="${wdCal??'天數'}" style="width:60px">天 × 8</label>
+      <span style="font-size:13px" class="${diff<0?'minus':'muted'}">${wd?'差距 '+(diff>0?'+':'')+fmtH(diff)+' 小時':''}</span></div>
+  </div>
+  <div class="panel">
+    <div class="tablewrap"><table>
+      <thead><tr><th>月份</th><th>應領</th><th>扣除</th><th>實領</th><th>時數</th><th>時薪</th><th>請假/特休</th><th class="barcell">實領</th></tr></thead>
+      <tbody>${rows.map(r=>r.c?`<tr data-ym="${r.ym}"><td>${r.i} 月</td><td class="num">${money(r.c.gross)}</td><td class="num minus">−${money(r.c.ded)}</td><td class="num"><b>${money(r.c.net)}</b></td><td class="num">${fmtH(r.c.hours)}</td><td class="num">${fmtAvg(r.c.avg)}</td><td class="num">${esc(S.months[r.ym].leave||0)} / ${esc(S.months[r.ym].pto||0)}</td><td class="barcell"><div class="bar" style="width:${max>0?Math.max(0,r.c.net/max*100):0}%"></div></td></tr>`
+        :`<tr data-ym="${r.ym}"><td>${r.i} 月</td><td colspan="7" class="muted" style="text-align:left">尚無資料,點此新增</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td>合計</td><td class="num">${money(tg)}</td><td class="num minus">−${money(td)}</td><td class="num">${money(tn)}</td><td class="num">${fmtH(th)}</td><td class="num">${fmtAvg(avg)}</td><td class="num">${fmtH(tl)} / ${fmtH(tp)}</td><td></td></tr></tfoot>
+    </table></div>
+  </div>`;
+  $('#wd').onchange=e=>{const v=Math.round(ev(e.target.value).v);if(v>0)S.workdays[year]=v;else delete S.workdays[year];save();renderYear()};
+  $('#yp').onclick=()=>{year--;renderYear()};
+  $('#yn').onclick=()=>{year++;renderYear()};
+  $('#main').onclick=e=>{if(e.target.closest('input'))return;const tr=e.target.closest('tr[data-ym]');if(tr){cur=tr.dataset.ym;setView('month')}};
+}
+
+/* ---------- 設定 ---------- */
+function wdYears(){
+  const ys=new Set([...CAL_YEARS,...Object.keys(S.workdays||{}),...Object.keys(S.months).map(k=>k.slice(0,4)),String(now.getFullYear()),String(now.getFullYear()+1)]);
+  return [...ys].map(Number).sort((a,b)=>a-b);
+}
+function renderSet(){
+  $('#main').innerHTML=`
+  <div class="panel">
+    <h2>收入項目</h2>
+    <div class="sethead"><span>名稱</span><span>算法</span><span>預設時薪</span><span>計時數</span><span>每月預設值</span><span></span></div>
+    ${S.items.map(it=>`<div class="setrow" data-item="${it.id}">
+      <input class="f-name" aria-label="名稱" value="${esc(it.name)}">
+      <select class="f-mode" aria-label="算法"><option value="rate"${it.mode==='rate'?' selected':''}>時數 × 時薪</option><option value="amount"${it.mode==='amount'?' selected':''}>直接輸入金額</option></select>
+      <input class="f-rate num" aria-label="預設時薪" inputmode="decimal" value="${it.rate}"${it.mode==='rate'?'':' disabled'}>
+      <label style="text-align:center"><input class="f-hours" type="checkbox" aria-label="計入總時數"${it.hours?' checked':''}${it.mode==='rate'?'':' disabled'}></label>
+      <input class="f-def num" aria-label="每月預設值" placeholder="例如 6000" value="${esc(it.def)}">
+      <button class="btn danger f-del" aria-label="刪除${esc(it.name)}">✕</button></div>`).join('')}
+    <p style="margin:12px 0 0"><button class="btn primary" id="additem">新增收入項目</button></p>
+    <p class="hint">「計入總時數」勾選的項目,時數會加進平均時薪的分母。「每月預設值」用在固定金額或固定時數,新的月份不必重填。</p>
+  </div>
+  <div class="panel">
+    <h2>扣除項目</h2>
+    <div class="sethead ded"><span>名稱</span><span>每月預設金額</span><span></span></div>
+    ${S.deds.map(d=>`<div class="setrow ded" data-ded="${d.id}">
+      <input class="f-name" aria-label="名稱" value="${esc(d.name)}">
+      <input class="f-def num" aria-label="預設金額" inputmode="decimal" value="${esc(d.def)}">
+      <button class="btn danger f-del" aria-label="刪除${esc(d.name)}">✕</button></div>`).join('')}
+    <p style="margin:12px 0 0"><button class="btn primary" id="adddeb">新增扣除項目</button></p>
+  </div>
+  <div class="panel">
+    <h2>年度上班天數</h2>
+    <div class="tablewrap"><table style="min-width:0;max-width:420px">
+      <thead><tr><th>年度</th><th>依日曆</th><th>自訂天數</th><th>目標時數(× 8)</th></tr></thead>
+      <tbody>${wdYears().map(y=>{const c=calWorkdays(y),w=workdaysFor(y);return `<tr data-year="${y}" style="cursor:default"><td class="num">${y}</td>
+        <td class="num">${c??'—'}</td>
+        <td><input class="num f-wd" id="wd-${y}" inputmode="numeric" aria-label="${y} 年自訂上班天數" value="${S.workdays[y]??''}" placeholder="${c??''}" style="width:80px;text-align:right"></td>
+        <td class="num wdh">${w?fmtH(w*8):'—'}</td></tr>`}).join('')}</tbody>
+    </table></div>
+    <p class="hint">「依日曆」是用人事行政總處「政府行政機關辦公日曆表」(2023–2027,2025 年為修正版)算出的上班天數,已含補行上班日;你在月曆上自行標記的假日也會算進去。「自訂天數」留白就用日曆的數字,其他年份或公告前可以自己填。</p>
+  </div>
+  <div class="panel">
+    <h2>備份與還原</h2>
+    <p class="hint" style="margin-top:0">資料只存在這支手機的 LINE 裡。要從 Claude 版本搬資料過來:在那邊按「產生並複製備份」,貼到下面再按「匯入」。換裝置或清除瀏覽資料前,請先複製下面的內容存起來;要還原時貼回來再按「匯入」。</p>
+    <textarea id="json" rows="5" style="width:100%" aria-label="備份內容"></textarea>
+    <p style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0">
+      <button class="btn" id="exp">產生並複製備份</button>
+      <button class="btn" id="imp">匯入</button>
+      <button class="btn danger" id="clr">清除所有月份資料</button>
+      <button class="btn danger" id="rst">全部重設</button>
+    </p>
+  </div>`;
+  const m=$('#main');
+  m.oninput=m.onchange=e=>{
+    const t=e.target,row=t.closest('[data-item],[data-ded]');
+    if(t.classList.contains('f-wd')){const y=t.closest('tr').dataset.year;const v=Math.round(ev(t.value).v);
+      if(v>0)S.workdays[y]=v;else delete S.workdays[y];save();const w=workdaysFor(y);t.closest('tr').querySelector('.wdh').textContent=w?fmtH(w*8):'—';return}
+    if(!row)return;
+    if(row.dataset.item){
+      const it=S.items.find(x=>x.id===row.dataset.item);
+      if(t.classList.contains('f-name'))it.name=t.value;
+      else if(t.classList.contains('f-mode')){it.mode=t.value;save();renderSet();return}
+      else if(t.classList.contains('f-rate'))it.rate=Number(t.value)||0;
+      else if(t.classList.contains('f-hours'))it.hours=t.checked;
+      else if(t.classList.contains('f-def'))it.def=t.value;
+    }else{
+      const d=S.deds.find(x=>x.id===row.dataset.ded);
+      if(t.classList.contains('f-name'))d.name=t.value;
+      else if(t.classList.contains('f-def'))d.def=t.value;
+    }
+    save();
+  };
+  m.onclick=e=>{
+    const t=e.target.closest('button');if(!t)return;
+    const row=t.closest('[data-item],[data-ded]');
+    if(t.classList.contains('f-del')&&row){
+      if(row.dataset.item)S.items=S.items.filter(x=>x.id!==row.dataset.item);
+      else S.deds=S.deds.filter(x=>x.id!==row.dataset.ded);
+      save();renderSet();return;
+    }
+    if(t.id==='additem'){S.items.push({id:uid(),name:'新項目',mode:'amount',rate:0,hours:false,def:''});save();renderSet()}
+    else if(t.id==='adddeb'){S.deds.push({id:uid(),name:'新扣除',def:''});save();renderSet()}
+    else if(t.id==='exp'){
+      const s=JSON.stringify(S);$('#json').value=s;$('#json').select();
+      (navigator.clipboard?.writeText(s)||Promise.reject()).then(()=>toast('已複製備份'),()=>toast('請手動複製文字框內容'));
+    }else if(t.id==='imp'){
+      try{const o=JSON.parse($('#json').value);if(!o.items||!o.months)throw 0;S=o;save();toast('已匯入');renderSet()}
+      catch(_){toast('格式不正確,無法匯入')}
+    }else if(t.id==='reimp'){
+      if(t.dataset.sure){const r=importHist(true);toast(`已重新匯入 ${r.n} 個月`);setView('set')}
+      else{t.dataset.sure=1;t.textContent='再按一次確認(會覆蓋 2023/01–2026/12 的資料)';setTimeout(()=>{t.dataset.sure='';t.textContent='重新匯入 Excel 紀錄'},3000)}
+    }else if(t.id==='clr'){
+      if(t.dataset.sure){S.months={};save();toast('已清除月份資料');setView('set')}
+      else{t.dataset.sure=1;t.textContent='再按一次確認清除';setTimeout(()=>{t.dataset.sure='';t.textContent='清除所有月份資料'},3000)}
+    }else if(t.id==='rst'){
+      if(t.dataset.sure){S=defaults();save();toast('已全部重設');setView('set')}
+      else{t.dataset.sure=1;t.textContent='再按一次確認重設';setTimeout(()=>{t.dataset.sure='';t.textContent='全部重設'},3000)}
+    }
+  };
+}
+
+/* ---------- 切換 ---------- */
+function setView(v){
+  view=v;
+  document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',b.dataset.view===v));
+  $('#main').oninput=$('#main').onchange=$('#main').onclick=null;
+  if(v==='year')year=Number(cur.slice(0,4));
+  ({month:renderMonth,year:renderYear,set:renderSet})[v]();
+  const hasSeed=S.seeded&&Object.values(S.months).some(m=>m.note==='範例資料');
+  $('#banner').innerHTML=hasSeed?`<div class="banner"><span>2026 年 1、2 月是依範例檔填入的示範資料,可直接改成自己的。</span><button class="btn" id="dismiss">清除示範月份</button></div>`:'';
+  const d=$('#dismiss');if(d)d.onclick=()=>{for(const k of Object.keys(S.months))if(S.months[k].note==='範例資料')delete S.months[k];S.seeded=false;save();setView(view)};
+}
+document.querySelector('nav').onclick=e=>{const b=e.target.closest('button');if(b)setView(b.dataset.view)};
+setView('month');
+
+/* ---------- LINE(LIFF) ---------- */
+// 在 LINE Developers 建好 LIFF 應用程式後,把 LIFF ID 填在這裡(例如 '2001234567-AbCdEfGh')
+const LIFF_ID='';
+if(LIFF_ID&&window.liff){
+  liff.init({liffId:LIFF_ID}).then(()=>{
+    const info=$('#lineinfo');
+    if(liff.isInClient()){
+      liff.getProfile().then(p=>{info.textContent=`${p.displayName} 的薪資計算本・資料只存在這支手機`}).catch(()=>{info.textContent='在 LINE 中開啟・資料只存在這支手機'});
+    }else info.textContent='目前在一般瀏覽器開啟,資料和 LINE 裡的不共用';
+  }).catch(e=>{console.warn('LIFF init failed',e)});
+}
+})();
+</script>
+
+</body>
+</html>
